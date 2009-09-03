@@ -7,14 +7,14 @@ use utf8;
 use Encode;
 #use open ':utf8';
 #  binmode STDIN, ":utf8";
-#  binmode STDOUT, ":utf8";
-use Config::Pit;
+  binmode STDOUT, ":utf8";
+#use Config::Pit;
 #use LWP::UserAgent;
 #use MIME::Base64;
 #use HTML::TagParser;
 use Web::Scraper;
 use URI;
-use Data::Dumper;
+#use Data::Dumper;
 
     my $input = $ARGV[0] or die 'no input error.';
     unless($input =~ /^\w+$/) {
@@ -28,7 +28,7 @@ use Data::Dumper;
         unless($twit) { last; }
         foreach(@$twit) {
             print $_->{uri}."\t".$_->{date}."\t".
-                  Encode::encode('utf8', $_->{msg})."\n";
+                  $_->{msg}."\n";
         }
     }
     print "\nscraping: $i\n";
