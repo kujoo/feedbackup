@@ -63,7 +63,7 @@ sub get_uri_rss_icon {
         result 'rss';
     }->scrape($uri);
     foreach(@$rss) {
-        if($_ =~ /^http:\/\/twitter\.com\/statuses\/user_timeline\/\d+\.rss$/) {
+        if($_ =~ /^($base)statuses\/user_timeline\/\d+\.rss$/) {
             return $_, $icon;
         }
     }
