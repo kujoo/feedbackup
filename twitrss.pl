@@ -15,6 +15,7 @@ use XML::TreePP;
 use HTML::Entities;
 use Web::Scraper;
 use URI;
+use URI::Escape;
 use DateTime::Format::HTTP;
 #use Data::Dumper;
 
@@ -22,34 +23,38 @@ use DateTime::Format::HTTP;
     unless($input =~ /^\w+$/) {
         exit;
     }
-    my $un = $input;
-    my($urirss, $tw, $ic) = &get_rss_uri($un) or die('doesnot get user-code.');
+    my $username = $input;
+
+    my $base = 'http://twitter.com/';
+    my($rss, $icon) = &get_uri_rss_icon($base, $username) or die('doesnot get user-code.');
 
     my $i;
     for($i = 1; $i < 999; $i++) {
-        my $twit = &get_rss_twit($urirss, $i);
+        my $twit = &get_rss_twit($rss, $i);
         unless($twit) { last; }
-        print '<table>';
+        print '<ul>';
         foreach(@$twit) {
-            my($dt, $ti) = &get_date_timestamp($_->{pubDate});
-            my $ps = HTML::Entities::decode($_->{title});
-            my $lk = $_->{link};
+            my($date, $time) = &get_date_timestamp($_->{pubDate});
+            my $link = $_->{link};
+            my $post = HTML::Entities::decode($_->{title});
+            $post =~ s/^$username: //;
+            $post =~ s/\@(\w+)/\@<a href\="$base$1">$1<\/a>/g;
+            $post =~ s/#\w+/<a href\="$base\#search\?q\=@{[uri_escape_utf8($&)]}">$&<\/a>/g;
             print<<"EOD";
-$dt
-<tr><td><a href="$tw"><img src="$ic" border="0" width="48"></a></td><td><a href="$tw">$un</a></td><td>$ti</td><td>$ps</td><td><a href="$lk">link</a></td></tr>
+$date\t<li><a href="$link">$time</a> $post</li>
 EOD
         }
-        print '</table>';
+        print '</ul>';
     }
     print "\nscraping: $i\n";
 
     exit;
 
-sub get_rss_uri {
+sub get_uri_rss_icon {
+    my $base = shift or return;
     my $id = shift or return;
-    my $turi = 'http://twitter.com/'.$id;
-    my $uri = new URI($turi);
-    my $ico = scraper {
+    my $uri = new URI($base.$id);
+    my $icon = scraper {
         process 'div.profile-head div.listable h2 a img', 'ico' => '@src';
         result 'ico';
     }->scrape($uri);
@@ -59,18 +64,18 @@ sub get_rss_uri {
     }->scrape($uri);
     foreach(@$rss) {
         if($_ =~ /^http:\/\/twitter\.com\/statuses\/user_timeline\/\d+\.rss$/) {
-            return $_, $turi, $ico;
+            return $_, $icon;
         }
     }
     return;
 }
 
 sub get_rss_twit {
-    my $uri = shift or return;
+    my $base = shift or return;
     my $page = shift or return;
     sleep(7);
     my $xtpp = XML::TreePP->new() or return;
-    my $rss = $xtpp->parsehttp(GET => $uri.'?page='.$page) or return;
+    my $rss = $xtpp->parsehttp(GET => $base.'?page='.$page) or return;
     my $item = $rss->{rss}->{channel}->{item} or return;
     return $item;
 }
