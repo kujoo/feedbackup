@@ -28,11 +28,14 @@ use DateTime::Format::HTTP;
     my $base = 'http://twitter.com/';
     my($rss, $icon) = &get_uri_rss_icon($base, $username) or die('doesnot get user-code.');
 
-    print "<ul>\n";
-    my $i;
-    for($i = 1; $i < 999; $i++) {
+    my($count, $days) = (0, "");
+    for(my $i = 1; $i < 999; $i++) {
         my $twit = &get_rss_twit($rss, $i);
-        unless($twit) { last; }
+        unless($twit) {
+            print "</ul>\n";
+            $count = $i;
+            last;
+        }
         foreach(@$twit) {
             my($date, $time) = &get_date_timestamp($_->{pubDate});
             my $link = $_->{link};
@@ -40,13 +43,18 @@ use DateTime::Format::HTTP;
             $post =~ s/^$username: //;
             $post =~ s/\@(\w+)/\@<a href\="@{[&get_uri_reply($link, $base.$1)]}">$1<\/a>/g;
             $post =~ s/#\w+/<a href\="$base#search\?q\=@{[uri_escape_utf8($&)]}">$&<\/a>/g;
+            if($days ne $date) {
+                if($days) { print "</ul>\n"; }
+                print "- $date\n";
+                print "<ul>\n";
+                $days = $date;
+            }
             print<<"EOD";
-$date\t<li><a href="$link">$time</a> $post $icon</li>
+<li><a href="$link">$time</a> $post</li>
 EOD
         }
     }
-    print "</ul>\n";
-    print "\nscraping: $i\n";
+    print "\nscraping: $count\n";
 
     exit;
 
@@ -87,17 +95,18 @@ sub get_date_timestamp {
 }
 
 sub get_uri_reply {
-    my $post = shift or return;
-    my $userlink = shift or return;
-    print "\n$post\n";
-    my $uri = new URI($post);
+    my $entry = shift or return;
+    my $user_tl = shift or return;
+    my $uri = new URI($entry);
     my $link = scraper {
-        process 'span.status-body span a', 'link' => '@href';
+        process 'span span.entry-meta a', 'link[]' => '@href';
         result 'link';
     }->scrape($uri);
-    if($link) {
-        return $link;
+    foreach(@$link) {
+        if($_ =~ /^$user_tl\/status\/\d+$/) {
+            return $_;
+        }
     }
-    return $userlink;
+    return $user_tl;
 }
 
