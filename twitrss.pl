@@ -55,7 +55,7 @@ sub get_uri_rss {
 sub do_scrape_twit_rss {
     my $uri = shift or return;
     my $page = shift or return;
-    sleep(5);
+    sleep(8);
     my $xtpp = XML::TreePP->new() or return;
     my $rss = $xtpp->parsehttp(GET => $uri.'?page='.$page) or return;
     my $item = $rss->{rss}->{channel}->{item} or return;
