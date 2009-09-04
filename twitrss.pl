@@ -28,24 +28,24 @@ use DateTime::Format::HTTP;
     my $base = 'http://twitter.com/';
     my($rss, $icon) = &get_uri_rss_icon($base, $username) or die('doesnot get user-code.');
 
+    print "<ul>\n";
     my $i;
     for($i = 1; $i < 999; $i++) {
         my $twit = &get_rss_twit($rss, $i);
         unless($twit) { last; }
-        print '<ul>';
         foreach(@$twit) {
             my($date, $time) = &get_date_timestamp($_->{pubDate});
             my $link = $_->{link};
             my $post = HTML::Entities::decode($_->{title});
             $post =~ s/^$username: //;
-            $post =~ s/\@(\w+)/\@<a href\="$base$1">$1<\/a>/g;
-            $post =~ s/#\w+/<a href\="$base\#search\?q\=@{[uri_escape_utf8($&)]}">$&<\/a>/g;
+            $post =~ s/\@(\w+)/\@<a href\="@{[&get_uri_reply($link, $base.$1)]}">$1<\/a>/g;
+            $post =~ s/#\w+/<a href\="$base#search\?q\=@{[uri_escape_utf8($&)]}">$&<\/a>/g;
             print<<"EOD";
-$date\t<li><a href="$link">$time</a> $post</li>
+$date\t<li><a href="$link">$time</a> $post $icon</li>
 EOD
         }
-        print '</ul>';
     }
+    print "</ul>\n";
     print "\nscraping: $i\n";
 
     exit;
@@ -55,8 +55,8 @@ sub get_uri_rss_icon {
     my $id = shift or return;
     my $uri = new URI($base.$id);
     my $icon = scraper {
-        process 'div.profile-head div.listable h2 a img', 'ico' => '@src';
-        result 'ico';
+        process 'div h2 a img', 'icon' => '@src';
+        result 'icon';
     }->scrape($uri);
     my $rss = scraper {
         process 'html head link', 'rss[]' => '@href';
@@ -67,7 +67,6 @@ sub get_uri_rss_icon {
             return $_, $icon;
         }
     }
-    return;
 }
 
 sub get_rss_twit {
@@ -85,5 +84,20 @@ sub get_date_timestamp {
     my $dt = DateTime::Format::HTTP->parse_datetime($timestamp)->set_time_zone('local');
     my($date, $time) = split(/T/, $dt);
     return $date, $time;
+}
+
+sub get_uri_reply {
+    my $post = shift or return;
+    my $userlink = shift or return;
+    print "\n$post\n";
+    my $uri = new URI($post);
+    my $link = scraper {
+        process 'span.status-body span a', 'link' => '@href';
+        result 'link';
+    }->scrape($uri);
+    if($link) {
+        return $link;
+    }
+    return $userlink;
 }
 
