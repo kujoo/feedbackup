@@ -42,7 +42,7 @@ use DateTime::Format::HTTP;
             my $post = HTML::Entities::decode($_->{title});
             $post =~ s/^$username: //;
             $post =~ s/\@(\w+)/\@<a href\="@{[&get_uri_reply($link, $base.$1)]}">$1<\/a>/g;
-            $post =~ s/#\w+/<a href\="$base#search\?q\=@{[uri_escape_utf8($&)]}">$&<\/a>/g;
+            $post =~ s/#\S+/<a href\="$base#search\?q\=@{[uri_escape_utf8($&)]}">$&<\/a>/g;
             if($days ne $date) {
                 if($days) { print "</ul>\n"; }
                 print "- $date\n";
