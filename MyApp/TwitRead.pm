@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use utf8;
 #use Carp qw(croak);
-use Encode;
+#use Encode;
 use XML::TreePP;
 use HTML::Entities;
 use Web::Scraper;
@@ -28,7 +28,7 @@ sub new {
         iconuri  => $iconuri,
         twitter  => $baseuri,
         charset  => 'utf-8',
-        waitsec  => 7,
+        waitsec  => 3,
         timezone => $__time_zone,
     }, $class;
 }
@@ -57,13 +57,26 @@ sub rss_content {
 
 sub date {
     my $self = shift;
-    my $start = shift;
-    my $end = shift;
+    my $date1 = shift;
+    my $date2 = shift;
+    my $tz = shift;
     my $max = shift;
-    my $tz = $__time_zone;
-    unless($start) { $start = DateTime->now(time_zone => $tz); }
-    unless($end) { $end = $start; }
     unless($max) { $max = 99; }
+    unless($tz) { $tz = $__time_zone; }
+    unless($date1) {
+        $date1 = DateTime->now(time_zone => $tz);
+        $date1 = &__set_day_of_last($date1);
+    }
+    unless($date2) {
+        $date2 = DateTime->now(time_zone => $tz);
+        $date2 = &__set_day_of_first($date2);
+    }
+    my $start = $date1;
+    my $end   = $date2;
+    if($date1 < $date2) {
+        $start = $date2;
+        $end   = $date1;
+    }
 
     my $twit;
 
@@ -72,13 +85,13 @@ sub date {
         unless($rss) { last; }
         foreach(@$rss) {
             my $dt = &__conv_timestamp($_->{pubDate});
-            if(&__date_diff($end, $dt) < 0) { return $twit; }
+            if($dt < $end) { return $twit; }
             my $link = $_->{link};
             my $post = HTML::Entities::decode($_->{title});
             $post =~ s|^$self->{username}: ||;
             $post =~ s|\@(\w+)|\@<a href\="@{[&__get_reply($link, $self->{twitter}.$1)]}">$1</a>|g;
             $post =~ s|#\S+|<a href\="$self->{twitter}#search\?q\=@{[uri_escape_utf8($&)]}">$&</a>|g;
-            if(&__date_diff($start, $dt) >= 0) {
+            if($dt <= $start) {
                 push(@$twit, {
                     post => $post,
                     link => $link,
@@ -95,17 +108,21 @@ sub dayago {
     my $self = shift;
     my $days = shift;
     unless($days) { $days = 1; }
-    $days--;
     my $today = shift;
-
+    unless($today) { $today = "-"; }
     my $tz = shift;
     unless($tz) { $tz = $__time_zone; }
 
     my $start = DateTime->now(time_zone => $tz);
-    unless($today) { $today = 1; }
-    if($today ne 'today') { $start->add(days => 1); }
-    my $end = $start;
-    if($days > 0) { $end->add(days => $days); }
+    my $end   = DateTime->now(time_zone => $tz);
+    unless($today =~ m/^today$/i) {
+        $start->subtract(days => 1);
+        $end->subtract(days => 1);
+    }
+    if($days > 0) { $end->subtract(days => $days); }
+
+    $start = &__set_day_of_last($start);
+    $end   = &__set_day_of_first($end);
     return $self->date($start, $end);
 }
 
@@ -155,6 +172,7 @@ sub __get_reply {
             return $_;
         }
     }
+    return $user_tl;
 }
 
 sub __date_diff {
@@ -168,6 +186,28 @@ sub __date_diff {
 #   my $dt2 = DateTime->new(time_zone => $tz, year => $y, month => $m, day => $d);
     my $dur = $dt1->delta_days($dt2);
     return $dur->in_units('days');
+}
+
+sub __set_day_of_first {
+    my $dt = shift or return;
+    my $tz = shift;
+    unless($tz) { $tz = $__time_zone; }
+    my $date = DateTime->new(
+        time_zone => $tz,
+        year  => $dt->year,
+        month => $dt->month,
+        day   => $dt->day);
+    return $date;
+}
+
+sub __set_day_of_last {
+    my $dt = shift or return;
+    my $tz = shift;
+    unless($tz) { $tz = $__time_zone; }
+    my $date = __set_day_of_first($dt, $tz);
+    $date->add(days => 1);
+    $date->subtract(seconds => 1);
+    return $date;
 }
 
 sub __conv_timestamp {
