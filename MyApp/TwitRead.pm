@@ -13,23 +13,19 @@ use URI::Escape;
 use DateTime;
 use DateTime::Format::HTTP;
 
-my $__time_zone = 'Asia/Tokyo'; # or local
-
 sub new {
     my $class = shift;
-    my $username = shift
-        or die('please specify twitter-username.');
+    my $username = shift or die('please specify twitter-username.');
     my $baseuri = 'http://twitter.com/';
-    my($rssuri, $iconuri) = &__get_rss_icon($baseuri, $username)
-        or die('doesnot get rss-feed.');
+    my($rssuri, $iconuri) = &__get_rss_icon($baseuri, $username) or die('doesnot get rss-feed.');
     bless {
         username => $username,
         rssuri   => $rssuri,
-        iconuri  => $iconuri,
+        iconuri  => $iconuri ? $iconuri : undef,
         twitter  => $baseuri,
-        charset  => 'utf-8',
+        charset  => 'utf-8', # not use
         waitsec  => 3,
-        timezone => $__time_zone,
+        timezone => 'Asia/Tokyo', # or local
     }, $class;
 }
 
@@ -47,7 +43,9 @@ sub rss_content {
     my $self = shift;
     my $uri = $self->{rssuri};
     my $page = shift;
-    if($page) { $uri .= '?page='.$page; }
+    if($page) {
+        $uri .= '?page='.$page;
+    }
     my $xtpp = XML::TreePP->new() or return;
     my $rss = $xtpp->parsehttp(GET => $uri) or return;
     my $item = $rss->{rss}->{channel}->{item} or return;
@@ -61,15 +59,19 @@ sub date {
     my $date2 = shift;
     my $tz = shift;
     my $max = shift;
-    unless($max) { $max = 99; }
-    unless($tz) { $tz = $__time_zone; }
+    unless($max) {
+        $max = 99;
+    }
+    unless($tz) {
+        $tz = $self->{timezone};
+    }
     unless($date1) {
         $date1 = DateTime->now(time_zone => $tz);
-        $date1 = &__set_day_of_last($date1);
+        $date1 = &__set_day_of_last($date1, $tz);
     }
     unless($date2) {
         $date2 = DateTime->now(time_zone => $tz);
-        $date2 = &__set_day_of_first($date2);
+        $date2 = &__set_day_of_first($date2, $tz);
     }
     my $start = $date1;
     my $end   = $date2;
@@ -79,25 +81,64 @@ sub date {
     }
 
     my $twit;
+    my $m_rep = '\@(\w+)';
+    my $m_tag = '#\S+';
 
     for(my $i = 1; $i < $max; $i++) {
         my $rss = $self->rss_content($i);
-        unless($rss) { last; }
+        unless($rss) {
+            last;
+        }
         foreach(@$rss) {
-            my $dt = &__conv_timestamp($_->{pubDate});
-            if($dt < $end) { return $twit; }
+            my $dt = &__conv_timestamp($_->{pubDate}, $tz);
+            if($dt < $end) {
+                return $twit;
+            }
             my $link = $_->{link};
-            my $post = HTML::Entities::decode($_->{title});
-            $post =~ s|^$self->{username}: ||;
-            $post =~ s|\@(\w+)|\@<a href\="@{[&__get_reply($link, $self->{twitter}.$1)]}">$1</a>|g;
-            $post =~ s|#\S+|<a href\="$self->{twitter}#search\?q\=@{[uri_escape_utf8($&)]}">$&</a>|g;
+            my $text = HTML::Entities::decode($_->{title});
+            $text =~ s|^$self->{username}: ||;
+            my $msg = $text;
+
+            my($tag, $reply_user, $reply_uri);
+            foreach my $t ($msg =~ m/$m_tag/g) {
+                foreach(@$tag) {
+                    if($_ eq $t) {
+                        undef $t;
+                        last;
+                    }
+                }
+                if($t) {
+                    push(@$tag, $t);
+                }
+            }
+            foreach my $r ($msg =~ m/$m_rep/g) {
+                foreach(@$reply_user) {
+                    if($_ eq $r) {
+                        undef $r;
+                        last;
+                    }
+                }
+                if($r) {
+                    push(@$reply_user, $r);
+                }
+            }
+            if($reply_user) {
+                $reply_uri = &__get_reply($self->{twitter}.@$reply_user[0], $link);
+            }
+            $msg =~ s|$m_rep|\@<a href\="@{[&__chk_reply($self->{twitter}.$1, $reply_uri)]}">$1</a>|g;
+            $msg =~ s|$m_tag|<a href\="$self->{twitter}#search\?q\=@{[uri_escape_utf8($&)]}">$&</a>|g;
             if($dt <= $start) {
                 push(@$twit, {
-                    post => $post,
+                    text => $text,
+                    msg  => $msg,
                     link => $link,
                     date => $dt->strftime('%Y/%m/%d'),
                     time => $dt->strftime('%H:%M:%S'),
-                    dt   => $dt;
+                    timezone => $self->{timezone},
+                    datetime => $dt,
+                    tag  => $tag ? $tag : undef,
+                    reply      => $reply_uri  ? $reply_uri  : undef,
+                    reply_user => $reply_user ? $reply_user : undef,
                 });
             }
         }
@@ -108,11 +149,17 @@ sub date {
 sub daysago {
     my $self = shift;
     my $days = shift;
-    unless($days) { $days = 1; }
+    unless($days) {
+        $days = 1;
+    }
     my $today = shift;
-    unless($today) { $today = "-"; }
+    unless($today) {
+        $today = "-";
+    }
     my $tz = shift;
-    unless($tz) { $tz = $__time_zone; }
+    unless($tz) {
+        $tz = $self->{timezone};
+    }
 
     my $start = DateTime->now(time_zone => $tz);
     my $end   = DateTime->now(time_zone => $tz);
@@ -120,31 +167,36 @@ sub daysago {
         $start->subtract(days => 1);
         $end->subtract(days => 1);
     }
-    if(--$days > 0) { $end->subtract(days => $days); }
+    if(--$days > 0) {
+        $end->subtract(days => $days);
+    }
 
-    $start = &__set_day_of_last($start);
-    $end   = &__set_day_of_first($end);
+    $start = &__set_day_of_last($start, $tz);
+    $end   = &__set_day_of_first($end, $tz);
     return $self->date($start, $end);
 }
 
 sub weeksago {
     my $self = shift;
     my $weeks = shift;
-    unless($weeks) { $weeks = 1; }
+    unless($weeks) {
+        $weeks = 1;
+    }
     my $today = shift;
-    unless($today) { $today = ""; }
+    unless($today) {
+        $today = "";
+    }
     return $self->daysago($weeks * 7, $today);
 }
 
 sub datelinechange { # malfunction
     my $self = shift;
-    return;
+    return $self;
 }
 
 sub timezonechange { # malfunction
     my $self = shift;
     my $tz = shift or return;
-    $__time_zone = $tz;
     $self->{timezone} = $tz;
     return $self;
 }
@@ -169,8 +221,8 @@ sub __get_rss_icon {
 }
 
 sub __get_reply {
-    my $entry = shift or return;
     my $user_tl = shift or return;
+    my $entry = shift or return;
     my $uri = new URI($entry);
     my $link = scraper {
         process 'span span.entry-meta a', 'link[]' => '@href';
@@ -181,14 +233,22 @@ sub __get_reply {
             return $_;
         }
     }
+    return "";
+}
+
+sub __chk_reply {
+    my $user_tl = shift or return;
+    my $reply = shift or return $user_tl;
+    if($reply =~ /^$user_tl\/status\/\d+$/) {
+        return $reply;
+    }
     return $user_tl;
 }
 
 sub __date_diff {
     my $dt1 = shift or return;
     my $dt2 = shift or return;
-#   my $tz = shift;
-#   unless($tz) { $tz = $__time_zone; }
+#   my $tz = shift or return;
 #   my($y, $m, $d) = split(/-/, $date1);
 #   my $dt1 = DateTime->new(time_zone => $tz, year => $y, month => $m, day => $d);
 #   ($y, $m, $d) = split(/-/, $date2);
@@ -200,7 +260,7 @@ sub __date_diff {
 sub __set_day_of_first {
     my $dt = shift or return;
     my $tz = shift;
-    unless($tz) { $tz = $__time_zone; }
+    unless($tz) { $tz = 'local'; }
     my $date = DateTime->new(
         time_zone => $tz,
         year  => $dt->year,
@@ -212,7 +272,7 @@ sub __set_day_of_first {
 sub __set_day_of_last {
     my $dt = shift or return;
     my $tz = shift;
-    unless($tz) { $tz = $__time_zone; }
+    unless($tz) { $tz = 'local'; }
     my $date = __set_day_of_first($dt, $tz);
     $date->add(days => 1);
     $date->subtract(seconds => 1);
@@ -222,7 +282,7 @@ sub __set_day_of_last {
 sub __conv_timestamp {
     my $timestamp = shift or return;
     my $tz = shift;
-    unless($tz) { $tz = $__time_zone; }
+    unless($tz) { $tz = 'local'; }
     return DateTime::Format::HTTP->parse_datetime($timestamp)->set_time_zone($tz);
 }
 
