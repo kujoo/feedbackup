@@ -16,7 +16,7 @@ use MyApp::TwitRead;
     }
 
     my $tw = MyApp::TwitRead->new($input);
-    my $ps = $tw->dayago(1, 'today');
+    my $ps = $tw->weeksago(2);
 
     my $message = "$input said:\n\n";
     foreach(@$ps) {
@@ -27,14 +27,5 @@ use MyApp::TwitRead;
     $subject = Encode::encode("MIME-Header-ISO_2022_JP", $subject);
     $message = Encode::encode("iso-2022-jp", $message);
 
-    my $sender = new Mail::Sender { port => '587' };
-    $sender->MailMsg({
-        headers => ';',
-        from    => 'kurihara@kur.sakura.ne.jp',
-        to      => 'kurtalk@gmail.com',
-        subject => $subject,
-        msg     => $message,
-        charset => 'ISO-2022-jp',
-        ctype   => 'text/plain; charset="iso-2022-jp"',
-    });
+    print $message;
 

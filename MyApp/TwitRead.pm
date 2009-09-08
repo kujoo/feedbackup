@@ -13,7 +13,7 @@ use URI::Escape;
 use DateTime;
 use DateTime::Format::HTTP;
 
-my $__time_zone = 'local';
+my $__time_zone = 'Asia/Tokyo'; # or local
 
 sub new {
     my $class = shift;
@@ -97,6 +97,7 @@ sub date {
                     link => $link,
                     date => $dt->strftime('%Y/%m/%d'),
                     time => $dt->strftime('%H:%M:%S'),
+                    dt   => $dt;
                 });
             }
         }
@@ -104,7 +105,7 @@ sub date {
     return $twit;
 }
 
-sub dayago {
+sub daysago {
     my $self = shift;
     my $days = shift;
     unless($days) { $days = 1; }
@@ -119,25 +120,33 @@ sub dayago {
         $start->subtract(days => 1);
         $end->subtract(days => 1);
     }
-    if($days > 0) { $end->subtract(days => $days); }
+    if(--$days > 0) { $end->subtract(days => $days); }
 
     $start = &__set_day_of_last($start);
     $end   = &__set_day_of_first($end);
     return $self->date($start, $end);
 }
 
-sub weekago {
+sub weeksago {
     my $self = shift;
     my $weeks = shift;
     unless($weeks) { $weeks = 1; }
     my $today = shift;
     unless($today) { $today = ""; }
-    return $self->dayago($weeks * 7, $today);
+    return $self->daysago($weeks * 7, $today);
 }
 
-sub datelinechange {
+sub datelinechange { # malfunction
     my $self = shift;
     return;
+}
+
+sub timezonechange { # malfunction
+    my $self = shift;
+    my $tz = shift or return;
+    $__time_zone = $tz;
+    $self->{timezone} = $tz;
+    return $self;
 }
 
 sub __get_rss_icon {
