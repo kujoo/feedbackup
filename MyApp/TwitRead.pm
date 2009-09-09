@@ -24,7 +24,7 @@ sub new {
         iconuri  => $iconuri ? $iconuri : undef,
         twitter  => $baseuri,
         charset  => 'utf-8', # not use
-        waitsec  => 3,
+        waitsec  => 1,
         timezone => 'Asia/Tokyo', # or local
     }, $class;
 }
@@ -43,13 +43,10 @@ sub rss_content {
     my $self = shift;
     my $uri = $self->{rssuri};
     my $page = shift;
-    if($page) {
-        $uri .= '?page='.$page;
-    }
+    if($page) { $uri .= '?page='.$page; }
     my $xtpp = XML::TreePP->new() or return;
     my $rss = $xtpp->parsehttp(GET => $uri) or return;
     my $item = $rss->{rss}->{channel}->{item} or return;
-    sleep($self->{waitsec});
     return $item;
 }
 
@@ -59,12 +56,8 @@ sub date {
     my $date2 = shift;
     my $tz = shift;
     my $max = shift;
-    unless($max) {
-        $max = 99;
-    }
-    unless($tz) {
-        $tz = $self->{timezone};
-    }
+    unless($max) { $max = 99; }
+    unless($tz) { $tz = $self->{timezone}; }
     unless($date1) {
         $date1 = DateTime->now(time_zone => $tz);
         $date1 = &__set_day_of_last($date1, $tz);
@@ -75,10 +68,7 @@ sub date {
     }
     my $start = $date1;
     my $end   = $date2;
-    if($date1 < $date2) {
-        $start = $date2;
-        $end   = $date1;
-    }
+    if($date1 < $date2) { $start = $date2; $end = $date1; }
 
     my $twit;
     my $m_rep = '\@(\w+)';
@@ -86,13 +76,12 @@ sub date {
 
     for(my $i = 1; $i < $max; $i++) {
         my $rss = $self->rss_content($i);
-        unless($rss) {
-            last;
-        }
+        unless($rss) { last; }
+sleep($self->{waitsec}); ### wait
         foreach(@$rss) {
             my $dt = &__conv_timestamp($_->{pubDate}, $tz);
             if($dt < $end) {
-                return $twit;
+                return $twit, $end, $start;
             }
             my $link = $_->{link};
             my $text = HTML::Entities::decode($_->{title});
@@ -101,30 +90,15 @@ sub date {
 
             my($tag, $reply_user, $reply_uri);
             foreach my $t ($msg =~ m/$m_tag/g) {
-                foreach(@$tag) {
-                    if($_ eq $t) {
-                        undef $t;
-                        last;
-                    }
-                }
-                if($t) {
-                    push(@$tag, $t);
-                }
+                foreach(@$tag) { if($_ eq $t) { undef $t; last; } }
+                if($t) { push(@$tag, $t); }
             }
             foreach my $r ($msg =~ m/$m_rep/g) {
-                foreach(@$reply_user) {
-                    if($_ eq $r) {
-                        undef $r;
-                        last;
-                    }
-                }
-                if($r) {
-                    push(@$reply_user, $r);
-                }
+                foreach(@$reply_user) { if($_ eq $r) { undef $r; last; } }
+                if($r) { push(@$reply_user, $r); }
             }
-            if($reply_user) {
-                $reply_uri = &__get_reply($self->{twitter}.@$reply_user[0], $link);
-            }
+sleep($self->{waitsec}); ### wait
+            if($reply_user) { $reply_uri = &__get_reply($self->{twitter}.@$reply_user[0], $link); }
             $msg =~ s|$m_rep|\@<a href\="@{[&__chk_reply($self->{twitter}.$1, $reply_uri)]}">$1</a>|g;
             $msg =~ s|$m_tag|<a href\="$self->{twitter}#search\?q\=@{[uri_escape_utf8($&)]}">$&</a>|g;
             if($dt <= $start) {
@@ -143,23 +117,17 @@ sub date {
             }
         }
     }
-    return $twit;
+    return $twit, $end, $start;
 }
 
 sub daysago {
     my $self = shift;
     my $days = shift;
-    unless($days) {
-        $days = 1;
-    }
+    unless($days) { $days = 1; }
     my $today = shift;
-    unless($today) {
-        $today = "-";
-    }
+    unless($today) { $today = "-"; }
     my $tz = shift;
-    unless($tz) {
-        $tz = $self->{timezone};
-    }
+    unless($tz) { $tz = $self->{timezone}; }
 
     my $start = DateTime->now(time_zone => $tz);
     my $end   = DateTime->now(time_zone => $tz);
@@ -167,9 +135,7 @@ sub daysago {
         $start->subtract(days => 1);
         $end->subtract(days => 1);
     }
-    if(--$days > 0) {
-        $end->subtract(days => $days);
-    }
+    if(--$days > 0) { $end->subtract(days => $days); }
 
     $start = &__set_day_of_last($start, $tz);
     $end   = &__set_day_of_first($end, $tz);
@@ -179,13 +145,9 @@ sub daysago {
 sub weeksago {
     my $self = shift;
     my $weeks = shift;
-    unless($weeks) {
-        $weeks = 1;
-    }
+    unless($weeks) { $weeks = 1; }
     my $today = shift;
-    unless($today) {
-        $today = "";
-    }
+    unless($today) { $today = ""; }
     return $self->daysago($weeks * 7, $today);
 }
 
@@ -248,11 +210,6 @@ sub __chk_reply {
 sub __date_diff {
     my $dt1 = shift or return;
     my $dt2 = shift or return;
-#   my $tz = shift or return;
-#   my($y, $m, $d) = split(/-/, $date1);
-#   my $dt1 = DateTime->new(time_zone => $tz, year => $y, month => $m, day => $d);
-#   ($y, $m, $d) = split(/-/, $date2);
-#   my $dt2 = DateTime->new(time_zone => $tz, year => $y, month => $m, day => $d);
     my $dur = $dt1->delta_days($dt2);
     return $dur->in_units('days');
 }

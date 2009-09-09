@@ -3,40 +3,37 @@ use strict;
 use warnings;
 use utf8;
 use Encode;
-  binmode STDOUT, ":utf8";
-use Data::Dumper;
-#use Mail::Sender;
-#use Mail::Sendmail;
-#use Mail::SendEasy;
+use Config::Pit;
 use MIME::Lite;
 use MyApp::TwitRead;
 
     my $input = $ARGV[0] or die 'no input error.';
-    unless($input =~ /^\w+$/) {
-        die 'no input error.';
-    }
+    unless($input =~ /^\w+$/) { die 'no input error.'; }
 
     my $tw = MyApp::TwitRead->new($input);
-    my $ps = $tw->daysago(3);
+    my($ps, $dt, $dt2) = $tw->daysago(2);
+#   my($ps, $dt, $dt2) = $tw->weeksago();
 
-    my $message = "$input said:\n\n";
-    foreach(@$ps) {
-        $message .= "-$_->{date} $_->{time} $_->{msg}\n\t$_->{link}\n\n";
-    }
-    my $subject = 'Yesterday twitter said.';
-
-    print $message;
+    my $subject = $input.' on Twitter: '.$dt->ymd('/').' - '.$dt2->ymd('/');
+    my $msg_html = '<p>'.$subject.'</p>'."\n\n".'<ul>';
+    if($ps) { foreach(@$ps) {
+        $msg_html .= "<li><a href=\"$_->{link}\">$_->{time}</a>";
+        $msg_html .= "　$_->{msg}</li>\n\n";
+    } } else { $msg_html .= '<p>Not twitting about anything. (or, Could not get RSS-feed.)</p>'; }
+    $msg_html .= '</ul>';
 
     $subject = Encode::encode("MIME-Header-ISO_2022_JP", $subject);
-    $message = Encode::encode("iso-2022-jp", $message);
+    $msg_html = Encode::encode("utf8", $msg_html); # or iso-2022-jp ?
+
+    my $config = pit_get("personal.server");
 
     my $mail = MIME::Lite->new(
-        From     => 'kujoo@wiir.jp',
-        To       => 'kurtalk@gmail.com',
+        From     => $config->{mail},
+        To       => $config->{disposablemail},
         Subject  => $subject,
-        Type     => 'TEXT',
-        Data     => $message,
-#        Encoding => 'base64',
+        Data     => $msg_html,
+        Type     => 'text/html',
     );
+    $mail->attr('content-type.charset' => 'UTF-8');
     $mail->send("sendmail", "/usr/sbin/sendmail -t -oi -oem");
 
