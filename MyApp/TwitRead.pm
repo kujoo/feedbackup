@@ -77,7 +77,8 @@ sub date {
     for(my $i = 1; $i < $max; $i++) {
         my $rss = $self->rss_content($i);
         unless($rss) { last; }
-sleep($self->{waitsec}); ### wait
+### wait
+sleep($self->{waitsec});
         foreach(@$rss) {
             my $dt = &__conv_timestamp($_->{pubDate}, $tz);
             if($dt < $end) {
@@ -97,7 +98,8 @@ sleep($self->{waitsec}); ### wait
                 foreach(@$reply_user) { if($_ eq $r) { undef $r; last; } }
                 if($r) { push(@$reply_user, $r); }
             }
-sleep($self->{waitsec}); ### wait
+### wait
+sleep($self->{waitsec});
             if($reply_user) { $reply_uri = &__get_reply($self->{twitter}.@$reply_user[0], $link); }
             $msg =~ s|$m_rep|\@<a href\="@{[&__chk_reply($self->{twitter}.$1, $reply_uri)]}">$1</a>|g;
             $msg =~ s|$m_tag|<a href\="$self->{twitter}#search\?q\=@{[uri_escape_utf8($&)]}">$&</a>|g;
