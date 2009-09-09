@@ -24,7 +24,7 @@ sub new {
         iconuri  => $iconuri ? $iconuri : undef,
         twitter  => $baseuri,
         charset  => 'utf-8', # not use
-        waitsec  => 1,
+        waitsec  => 2,
         timezone => 'Asia/Tokyo', # or local
     }, $class;
 }
