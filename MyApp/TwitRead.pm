@@ -15,17 +15,19 @@ use DateTime::Format::HTTP;
 
 sub new {
     my $class = shift;
-    my $username = shift or die('please specify twitter-username.');
+    my $username = shift or return 'please specify twitter-username.';
+    my $waitsec  = shift;
+    my $timezone = shift;
     my $baseuri = 'http://twitter.com/';
-    my($rssuri, $iconuri) = &__get_rss_icon($baseuri, $username) or die('doesnot get rss-feed.');
+    my($rssuri, $iconuri) = &__get_rss_icon($baseuri, $username) or return 'Could not get rss-feed.';
     bless {
         username => $username,
         rssuri   => $rssuri,
         iconuri  => $iconuri ? $iconuri : undef,
         twitter  => $baseuri,
         charset  => 'utf-8', # not use
-        waitsec  => 5,
-        timezone => 'Asia/Tokyo', # or local
+        waitsec  => $waitsec ? $waitsec : 5,
+        timezone => $timezone ? $timezone : 'Asia/Tokyo', # or local
     }, $class;
 }
 
