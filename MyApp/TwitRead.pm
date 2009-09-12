@@ -15,18 +15,18 @@ use DateTime::Format::HTTP;
 
 sub new {
     my $class = shift;
-    my $username = shift or return 'please specify twitter-username.';
+    my $username = shift or return undef, 'please specify twitter-username.';
     my $waitsec  = shift;
     my $timezone = shift;
     my $baseuri = 'http://twitter.com/';
-    my($rssuri, $iconuri) = &__get_rss_icon($baseuri, $username) or return 'Could not get rss-feed.';
+    my($rssuri, $iconuri) = &__get_rss_icon($baseuri, $username) or return undef, 'Could not get rss-feed.';
     bless {
         username => $username,
         rssuri   => $rssuri,
         iconuri  => $iconuri ? $iconuri : undef,
         twitter  => $baseuri,
         charset  => 'utf-8', # not use
-        waitsec  => $waitsec ? $waitsec : 5,
+        waitsec  => $waitsec ? $waitsec : 3,
         timezone => $timezone ? $timezone : 'Asia/Tokyo', # or local
     }, $class;
 }
@@ -79,8 +79,9 @@ sub date {
     for(my $i = 1; $i < $max; $i++) {
         my $rss = $self->rss_content($i);
         unless($rss) { last; }
-### wait
-sleep($self->{waitsec});
+
+sleep($self->{waitsec}); ### wait
+
         foreach(@$rss) {
             my $dt = &__conv_timestamp($_->{pubDate}, $tz);
             if($dt < $end) {
@@ -100,8 +101,9 @@ sleep($self->{waitsec});
                 foreach(@$reply_user) { if($_ eq $r) { undef $r; last; } }
                 if($r) { push(@$reply_user, $r); }
             }
-### wait
-sleep($self->{waitsec});
+
+sleep($self->{waitsec}); ### wait
+
             if($reply_user) { $reply_uri = &__get_reply($self->{twitter}.@$reply_user[0], $link); }
             $msg =~ s|$m_rep|\@<a href\="@{[&__chk_reply($self->{twitter}.$1, $reply_uri)]}">$1</a>|g;
             $msg =~ s|$m_tag|<a href\="$self->{twitter}#search\?q\=@{[uri_escape_utf8($&)]}">$&</a>|g;

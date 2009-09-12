@@ -11,17 +11,23 @@ use MyApp::TwitRead;
     unless($input =~ /^\w+$/) { die 'no input error.'; }
 
     my $tw = MyApp::TwitRead->new($input);
-    my($ps, $dt, $dt2) = $tw->daysago(250);
+    unless($tw) { die 'Not found RSS-feed. (or, Twitter is down.)' }
+
+    my($ps, $dt, $dt2) = $tw->daysago(2);
 #   my($ps, $dt, $dt2) = $tw->weeksago();
 
     my $subject = $input.' on Twitter: '.$dt->ymd('/').' - '.$dt2->ymd('/');
-    my $msg_html = '<p>'.$subject.'</p>'."\n\n".'<ul>';
-    if($ps and $ps->{datetime}) {
-        foreach(@$ps) {
-            $msg_html .= "<li><a href=\"$_->{link}\">$_->{time}</a>";
-            $msg_html .= "　$_->{msg}</li>\n\n";
+    my $msg_html = '<p>'.$subject.'</p>'."\n\n";
+    my $date = "";
+    if($ps) { foreach(@$ps) {
+        if($_->{date} ne $date) {
+            if($date) { $msg_html .= "</ul>\n" }
+            $date = $_->{date};
+            $msg_html .= "<p>$date</p>\n<ul>\n";
         }
-    } else {
+        $msg_html .= "<li><a href=\"$_->{link}\">$_->{time}</a>";
+        $msg_html .= "　$_->{msg}</li>\n\n";
+    } } else {
         $msg_html .= '<p>Not twitting about anything. (or, Could not get RSS-feed.)</p>';
     }
     $msg_html .= '</ul>';
