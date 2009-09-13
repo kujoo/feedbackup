@@ -13,24 +13,26 @@ use MyApp::TwitRead;
     my $tw = MyApp::TwitRead->new($input);
     unless($tw) { die 'Not found RSS-feed. (or, Twitter is down.)' }
 
-    my($ps, $dt, $dt2) = $tw->daysago(2);
-#   my($ps, $dt, $dt2) = $tw->weeksago();
+    my($ps, $dt, $dt2, $l) = $tw->daysago(2);
+    if($l) { warn $l; }
 
     my $subject = $input.' on Twitter: '.$dt->ymd('/').' - '.$dt2->ymd('/');
     my $msg_html = '<p>'.$subject.'</p>'."\n\n";
     my $date = "";
-    if($ps) { foreach(@$ps) {
-        if($_->{date} ne $date) {
-            if($date) { $msg_html .= "</ul>\n" }
-            $date = $_->{date};
-            $msg_html .= "<p>$date</p>\n<ul>\n";
+    if($ps) {
+        foreach(@$ps) {
+            if($_->{date} ne $date) {
+                if($date) { $msg_html .= "</ul>\n" }
+                $date = $_->{date};
+                $msg_html .= "<p>$date</p>\n<ul>\n";
+            }
+            $msg_html .= "<li><a href=\"$_->{link}\">$_->{time}</a>";
+            $msg_html .= "　$_->{msg}</li>\n\n";
         }
-        $msg_html .= "<li><a href=\"$_->{link}\">$_->{time}</a>";
-        $msg_html .= "　$_->{msg}</li>\n\n";
-    } } else {
+        $msg_html .= '</ul>'
+    } else {
         $msg_html .= '<p>Not twitting about anything. (or, Could not get RSS-feed.)</p>';
     }
-    $msg_html .= '</ul>';
 
     $subject = Encode::encode("MIME-Header-ISO_2022_JP", $subject);
     $msg_html = Encode::encode("utf8", $msg_html); # or iso-2022-jp ?
@@ -46,4 +48,6 @@ use MyApp::TwitRead;
     );
     $mail->attr('content-type.charset' => 'UTF-8');
     $mail->send("sendmail", "/usr/sbin/sendmail -t -oi -oem");
+
+#    print $msg_html;
 
