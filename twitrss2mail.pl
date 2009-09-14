@@ -14,7 +14,7 @@ use MyApp::TwitRead;
     unless($tw) { die 'Not found RSS-feed. (or, Twitter is down.)' }
 
     my($ps, $dt, $dt2, $l) = $tw->daysago(2);
-    if($l) { warn $l; }
+#   if($l) { warn 'last page: '.$l."\n"; }
 
     my $subject = $input.' on Twitter: '.$dt->ymd('/').' - '.$dt2->ymd('/');
     my $msg_html = '<p>'.$subject.'</p>'."\n\n";
