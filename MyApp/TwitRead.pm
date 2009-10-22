@@ -16,8 +16,8 @@ use DateTime::Format::HTTP;
 my $baseuri  = 'http://twitter.com/';
 my $charset  = 'utf-8'; # not use
 my $timezone = 'Asia/Tokyo'; # or local
-my $waitsec  = 3;
-my $max_loop = 160; # or Twitter-Spec
+my $waitsec  = 7;
+my $max_loop = 161; # or Twitter-Spec
 
 sub new {
     my $class = shift;
@@ -42,6 +42,9 @@ sub rss_content {
     my $uri  = $self->{rss};
     my $page = shift;
     if($page) { $uri .= '?page='.$page; }
+
+sleep($waitsec); ### wait
+
     my $xtpp = XML::TreePP->new(force_array => ["item"]) or return;
     my $rss  = $xtpp->parsehttp(GET => $uri) or return;
     my $item = $rss->{rss}->{channel}->{item} or return;
@@ -80,12 +83,11 @@ sub date {
             my $text = HTML::Entities::decode($_->{title});
             $text =~ s|^$self->{username}: ||;
 
-sleep($waitsec); ### wait
-
             my $msg = $text;
             $msg =~ s/</&lt;/g;
             $msg =~ s/>/&gt;/g;
             $msg =~ s/"/&quot;/g;
+
             my($tag, $reply_user, $reply_uri);
             foreach my $t ($msg =~ m/$r_tag/g) {
                 foreach(@$tag) { if($_ eq $t) { undef $t; last; } }
@@ -176,6 +178,9 @@ sub loopchange {
 sub __get_rss_icon {
     my $id   = shift or return;
     my $uri  = new URI($baseuri.$id);
+
+sleep($waitsec); ### wait
+
     my $icon = scraper {
         process 'div h2 a img', 'icon' => '@src';
         result 'icon';
@@ -195,6 +200,9 @@ sub __get_reply {
     my $user  = shift or return;
     my $entry = shift or return;
     my $uri   = new URI($entry);
+
+sleep($waitsec); ### wait
+
     my $link = scraper {
         process 'span span.entry-meta a', 'link[]' => '@href';
         result 'link';

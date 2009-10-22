@@ -8,16 +8,18 @@ use MIME::Lite;
 use MyApp::TwitRead;
 
     my $input = $ARGV[0] or die 'no input error.';
-    unless($input =~ /^\w+$/) { die 'no input error.'; }
+    unless($input =~ /^\w+$/) { die 'invalid input error.'; }
+
+    my $days = $ARGV[1]; unless($days) { $days = 2; }
 
     my $tw = MyApp::TwitRead->new($input);
     unless($tw) { die 'Not found RSS-feed. (or, Twitter is down.)' }
 
-    my($ps, $dt, $dt2, $l) = $tw->daysago(2);
+    my($ps, $dt, $dt2, $l) = $tw->daysago($days);
 #   if($l) { warn 'last page: '.$l."\n"; }
 
-    my $subject = $input.' on Twitter: '.$dt->ymd('/').' - '.$dt2->ymd('/');
-    my $msg_html = '<p>'.$subject.'</p>'."\n\n";
+    my $subject = "$input on Twitter: ".$dt2->ymd('/').' - '.$dt->ymd('/');
+    my $msg_html = "<p>$subject</p>\n\n";
     my $date = "";
     if($ps) {
         foreach(@$ps) {
@@ -26,12 +28,11 @@ use MyApp::TwitRead;
                 $date = $_->{date};
                 $msg_html .= "<p>$date</p>\n<ul>\n";
             }
-            $msg_html .= "<li><a href=\"$_->{link}\">$_->{time}</a>";
-            $msg_html .= "　$_->{msg}</li>\n\n";
+            $msg_html .= "<li><a href=\"$_->{link}\">$_->{time}</a>　$_->{msg}</li>\n";
         }
         $msg_html .= '</ul>'
     } else {
-        $msg_html .= '<p>Not twitting about anything. (or, Could not get RSS-feed.)</p>';
+        $msg_html .= "<p>Not twitting about anything. (or, Could not get RSS-feed.)</p>\n";
     }
 
     $subject = Encode::encode("MIME-Header-ISO_2022_JP", $subject);
