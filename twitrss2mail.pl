@@ -13,7 +13,7 @@ use MyApp::TwitRead;
     my $days = $ARGV[1]; unless($days) { $days = 2; }
 
     my $tw = MyApp::TwitRead->new($input);
-    unless($tw) { die 'Not found RSS-feed. (or, Twitter is down.)' }
+    unless($tw) { die 'Not found RSS-feed. (or, Twitter is down.)'; }
 
     my($ps, $dt, $dt2, $l) = $tw->daysago($days);
 #   if($l) { warn 'last page: '.$l."\n"; }
@@ -24,13 +24,13 @@ use MyApp::TwitRead;
     if($ps) {
         foreach(@$ps) {
             if($_->{date} ne $date) {
-                if($date) { $msg_html .= "</ul>\n" }
+                if($date) { $msg_html .= "</ul>\n"; }
                 $date = $_->{date};
                 $msg_html .= "<p>$date</p>\n<ul>\n";
             }
             $msg_html .= "<li><a href=\"$_->{link}\">$_->{time}</a>　$_->{msg}</li>\n";
         }
-        $msg_html .= '</ul>'
+        $msg_html .= '</ul>';
     } else {
         $msg_html .= "<p>Not twitting about anything. (or, Could not get RSS-feed.)</p>\n";
     }
@@ -41,14 +41,14 @@ use MyApp::TwitRead;
     my $config = pit_get("personal.server");
 
     my $mail = MIME::Lite->new(
-        From     => $config->{mail},
-        To       => $config->{disposablemail},
-        Subject  => $subject,
-        Data     => $msg_html,
-        Type     => 'text/html',
+        From    => $config->{mail},
+        To      => $config->{disposablemail},
+        Subject => $subject,
+        Data    => $msg_html,
+        Type    => 'text/html',
     );
     $mail->attr('content-type.charset' => 'UTF-8');
     $mail->send("sendmail", "/usr/sbin/sendmail -t -oi -oem");
 
-#    print $msg_html;
+#   print $msg_html;
 
